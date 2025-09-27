@@ -28,7 +28,7 @@ def main():
     os.makedirs("tickets", exist_ok=True)
     with open(os.path.join("tickets", f"{ticket_id}.txt"), "w", encoding="utf-8") as f:
         f.write(f"ticket_id: {ticket_id}\nhash: {digest}\n")
-    print(f"Generated tickets/{ticket_id}.txt. Now you can create Pull Request to submit your ticket!")
+    print(f"Generated tickets/{ticket_id}.txt. Now you can create Pull Request to submit your ticket!") 
 
 
 if __name__ == "__main__":
