@@ -11,7 +11,12 @@ permissions:
 jobs:
   validate-ticket:
     name: Validate single ticket file and hash
+    # environment-level secrets and required reviewers/approvals.
+    environment: check-ticket-runner
     runs-on: ubuntu-latest
+    # If instead you want this job to run on a self-hosted runner with the
+    # label `check-ticket-runner`, replace the above line with:
+    # runs-on: [self-hosted, check-ticket-runner]
     env:
       TICKET_TOKEN: ${{ secrets.TICKET_TOKEN }}
 
