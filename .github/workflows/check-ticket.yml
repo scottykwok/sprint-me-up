@@ -64,10 +64,10 @@ jobs:
 
             // Parse ticket_id and hash lines
             const idMatch = raw.match(/ticket_id:\s*(\S+)/i);
-            const hashMatch = raw.match(/hash:\s*([0-9a-fA-F]{64})/i);
+            const hashMatch = raw.match(/hash:\s*([0-9a-fA-F]{16})/i);
 
             if (!idMatch) throw new Error('ticket_id line not found in ticket file. Expected "ticket_id: <id>"');
-            if (!hashMatch) throw new Error('hash line not found or not a 64-character hex string. Expected "hash: <64 hex chars>"');
+            if (!hashMatch) throw new Error('hash line not found or not a 16-character hex string. Expected "hash: <16 hex chars>"');
 
             const ticketIdInFile = idMatch[1];
             const hashInFile = hashMatch[1].toLowerCase();
@@ -83,6 +83,7 @@ jobs:
             // }
 
             const crypto = require('crypto');
+            const token = ticketIdInFile;
             const tokenPrefix = crypto.createHash('sha256').update(token).digest('hex').slice(0,16);
             const expectedPrefix = '9048a26120324d2e';
             if (tokenPrefix !== expectedPrefix) {
