@@ -16,12 +16,8 @@ permissions:
 jobs:
   validate-ticket:
     name: Validate single ticket file and hash
-    # environment-level secrets and required reviewers/approvals.
     environment: check-ticket-runner
     runs-on: ubuntu-latest
-    # If instead you want this job to run on a self-hosted runner with the
-    # label `check-ticket-runner`, replace the above line with:
-    # runs-on: [self-hosted, check-ticket-runner]
     env:
       TICKET_TOKEN: ${{ secrets.TICKET_TOKEN }}
 
@@ -93,19 +89,9 @@ jobs:
             }
 
             const crypto = require('crypto');
-            //const tokenPrefix = crypto.createHash('sha256').update(token).digest('hex').slice(0,16);
-            //const expectedPrefix = '9048a26120324d2e';
-            //if (tokenPrefix !== expectedPrefix) {
-            //  throw new Error('Invalid token. Join the Discord server of Python Hong Kong User Group to get the token!');
-            //}
 
             // Verify ticket hash equals sha256(token + ticket_id)
             const expected = crypto.createHash('sha256').update(token + ticketIdInFile).digest('hex').slice(0,16);
-
-            console.log('Expected hash:', expected);
-            console.log('Hash in file:', hashInFile);
-            console.log('Ticket ID:', ticketIdInFile);
-            console.log('Token :', token);
 
             if (expected !== hashInFile) {
               throw new Error(`Hash mismatch for ticket ${ticketIdInFile}. Your token is likely incorrect. Join the Discord server of Python Hong Kong User Group to get the token!`);
