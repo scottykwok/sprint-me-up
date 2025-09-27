@@ -1,7 +1,12 @@
 name: Check ticket file
 
+# Use pull_request_target so the workflow runs in the context of the base branch
+# (this grants access to repository and environment secrets). IMPORTANT: do
+# NOT checkout or execute code from the PR head when using pull_request_target
+# because that would run untrusted code with elevated privileges. This job
+# reads the PR file contents via the API below which is safe.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -21,10 +26,10 @@ jobs:
       TICKET_TOKEN: ${{ secrets.TICKET_TOKEN }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      # NOTE: intentionally not checking out the PR head. Checking out PR code
+      # here would execute untrusted code (the PR author could modify workflow
+      # files). We read the changed file via the GitHub REST API in the
+      # script step above which does not execute PR code and is safe.
 
       - name: Validate ticket file and hash
         uses: actions/github-script@v7
@@ -81,7 +86,7 @@ jobs:
               throw new Error(`ticket_id inside file ("${ticketIdInFile}") does not match filename ticket id ("${ticketIdFromName}").`);
             }
 
-            // Verify token is valid (same check as registration.py)
+            // Verify token is valid 
             const token = process.env.TICKET_TOKEN || '';
             if (!token) {
               throw new Error('Repository secret TICKET_TOKEN is not set or not available to this workflow. The workflow cannot verify the ticket hash. Please add the secret or ask a maintainer to run the check.');
