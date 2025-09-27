@@ -1,0 +1,99 @@
+name: Check ticket file
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-ticket:
+    name: Validate single ticket file and hash
+    runs-on: ubuntu-latest
+    env:
+      TICKET_TOKEN: ${{ secrets.TICKET_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate ticket file and hash
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) throw new Error('This workflow must be run from a pull_request event');
+
+            // List files changed in the PR
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+
+            // Only consider added files under tickets/
+            const addedTicketFiles = files.filter(f => f.status === 'added' && f.filename.startsWith('tickets/'));
+
+            if (addedTicketFiles.length !== 1) {
+              throw new Error(`PR must add exactly one new file under tickets/. Found ${addedTicketFiles.length}.`);
+            }
+
+            const file = addedTicketFiles[0];
+            const filename = file.filename;
+
+            // Ensure filename looks like tickets/<ticket_id>.txt
+            const matchName = filename.match(/^tickets\/([^\/]+)\.txt$/);
+            if (!matchName) {
+              throw new Error(`Ticket filename must be tickets/<ticket_id>.txt. Found: "${filename}"`);
+            }
+            const ticketIdFromName = matchName[1];
+
+            // Read file content from the PR HEAD
+            const contentResp = await github.rest.repos.getContent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: filename,
+              ref: pr.head.sha,
+            });
+
+            const raw = Buffer.from(contentResp.data.content, 'base64').toString('utf8');
+
+            // Parse ticket_id and hash lines
+            const idMatch = raw.match(/ticket_id:\s*(\S+)/i);
+            const hashMatch = raw.match(/hash:\s*([0-9a-fA-F]{64})/i);
+
+            if (!idMatch) throw new Error('ticket_id line not found in ticket file. Expected "ticket_id: <id>"');
+            if (!hashMatch) throw new Error('hash line not found or not a 64-character hex string. Expected "hash: <64 hex chars>"');
+
+            const ticketIdInFile = idMatch[1];
+            const hashInFile = hashMatch[1].toLowerCase();
+
+            if (ticketIdInFile !== ticketIdFromName) {
+              throw new Error(`ticket_id inside file ("${ticketIdInFile}") does not match filename ticket id ("${ticketIdFromName}").`);
+            }
+
+            // Verify token is valid (same check as registration.py)
+            const token = process.env.TICKET_TOKEN || '';
+            if (!token) {
+              throw new Error('Repository secret TICKET_TOKEN is not set or not available to this workflow. The workflow cannot verify the ticket hash. Please add the secret or ask a maintainer to run the check.');
+            }
+
+            const crypto = require('crypto');
+            const tokenPrefix = crypto.createHash('sha256').update(token).digest('hex').slice(0,16);
+            const expectedPrefix = '9048a26120324d2e';
+            if (tokenPrefix !== expectedPrefix) {
+              throw new Error('Invalid token. Join the Discord server of Python Hong Kong User Group to get the token!');
+            }
+
+            // Verify ticket hash equals sha256(token + ticket_id)
+            const expected = crypto.createHash('sha256').update(token + ticketIdInFile).digest('hex');
+
+            if (expected !== hashInFile) {
+              throw new Error(`Hash mismatch for ticket ${ticketIdInFile}. Expected ${expected}, got ${hashInFile}.`);
+            }
+
+            console.log(`Ticket ${ticketIdInFile} verified successfully.`);
