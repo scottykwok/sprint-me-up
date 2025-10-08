@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyCon HK Sprint</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+    }
+        #qr-reader {
+            width: 300px;
+            height: 300px;
+            margin: auto;
+            border: 1px solid #ccc;
+        }
+        #output {
+            margin-top: 20px;
+        }
+        button {
+            margin-top: 10px;
+        }
+        .large-button {
+            padding: 12px 70px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: 2px solid black;
+        }
+        .large-button.idle {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        .large-button.scanning {
+            background-color: #360af8;
+            color: #ffffff;
+            border-color: #1e06f1;
+        }
+        /* Popup for ticket lookup results */
+        .popup {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+            z-index: 9999;
+            min-width: 200px;
+            text-align: center;
+        }
+        .popup.success { background-color: #16a34a; }
+        .popup.error { background-color: #dc2626; }
+    </style>
+</head>
+<body>
+
+<h1>PyCon HK 2025 Sprint Extra Tickets</h1>
+<button id="next" class="large-button"> Scan </button>
+<div>&nbsp;</div>
+<div id="qr-reader"></div>
+<div id="output"></div>
+
+<!-- Popup for ticket lookup result -->
+<div id="popup" class="popup" aria-live="polite" style="display:none"></div>
+
+
+<script>
+    const html5QrCode = new Html5Qrcode("qr-reader");
+    let isScanning = false;
+
+        // Ticket list (id => name)
+        const tickets = [
+            { id: '1327811269321821715513001', name: 'Mr. Nizar Meilani' },
+            { id: '1338862327322018830653001', name: 'Mr. Chun Hei NG' },
+            { id: '1339712013322034054723001', name: 'Mr. Utkarsh Goel' },
+            { id: '1338830264322018132843001', name: 'Mr. Jun Zing Loo' },
+            { id: '1331157681321879289233001', name: 'Mr. Scotty Kwok' },
+            { id: '1329882226321857706693001', name: 'Mr. Alex Au' },
+        ];
+
+    function showPopup(message, success = true, timeoutMs = 3000) {
+        const el = document.getElementById('popup');
+        el.textContent = message;
+        el.className = 'popup ' + (success ? 'success' : 'error');
+        el.style.display = 'block';
+        setTimeout(() => (el.style.display = 'none'), timeoutMs);
+    }
+
+    function setScanning(state) {
+        const btn = document.getElementById('next');
+        if (!btn) return;
+        if (state) {
+            btn.classList.remove('idle');
+            btn.classList.add('scanning');
+            btn.textContent = 'SCANNING...';
+        } else {
+            btn.classList.remove('scanning');
+            btn.classList.add('idle');
+            btn.textContent = 'Scan';
+        }
+    }
+
+    function stopScanning() {
+        if (!isScanning) return Promise.resolve();
+        return html5QrCode.stop().then(() => {
+            console.log('QR Code scanning stopped (manual).');
+            isScanning = false;
+            setScanning(false);
+        }).catch(err => {
+            console.error('Unable to stop scanning (manual).', err);
+            isScanning = false;
+            setScanning(false);
+        });
+    }
+
+    function startScanning() {
+        if (isScanning) return Promise.resolve();
+        isScanning = true;
+        setScanning(true);
+
+        return html5QrCode.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+                const scanTime = new Date().toLocaleString();
+                
+                const code = decodedText.trim();
+                const found = tickets.find(t => t.id === code);
+
+                document.getElementById('output').innerHTML += `<p>${decodedText}, ${found ? found.name : 'Not found'}, ${scanTime}</p>`;
+
+                if (found) showPopup(`Ticket found: ${found.name}`, true);
+                else showPopup('Ticket not found', false);
+
+                // stop after one scan
+                html5QrCode.stop().then(() => {
+                    isScanning = false;
+                    setScanning(false);
+                }).catch(err => {
+                    console.error('Unable to stop scanning.', err);
+                    isScanning = false;
+                    setScanning(false);
+                });
+            },
+            (errorMessage) => {
+                // scan error (ignored)
+            }
+        ).catch(err => {
+            console.error('Unable to start scanning.', err);
+            isScanning = false;
+            setScanning(false);
+        });
+    }
+
+    // Initialize
+    setScanning(false);
+
+    document.getElementById('next').addEventListener('click', () => {
+        if (isScanning) stopScanning();
+        else startScanning();
+    });
+
+    window.onload = startScanning;
+</script>
+
+</body>
+</html>
